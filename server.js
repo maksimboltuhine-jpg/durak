@@ -11,12 +11,12 @@ app.use(express.static('public'));
 
 let gameState = {
     deck: [],
-    players: {}, // { socketId: { hand: [], name: "" } }
-    table: [],   // [[card1, card2], ...]
-    trump: null
+    players: {}, 
+    table: [],   
+    trump: null,
+    turn: null
 };
 
-// Функция создания колоды
 function createDeck() {
     const suits = ['♠', '♣', '♥', '♦'];
     const values = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -26,12 +26,11 @@ function createDeck() {
 }
 
 io.on('connection', (socket) => {
-    console.log('Игрок подключился:', socket.id);
-
     socket.on('joinGame', (name) => {
         if (Object.keys(gameState.players).length === 0) {
             gameState.deck = createDeck();
             gameState.trump = gameState.deck.pop();
+            gameState.table = [];
         }
         
         gameState.players[socket.id] = {
@@ -39,14 +38,32 @@ io.on('connection', (socket) => {
             hand: gameState.deck.splice(0, 6)
         };
         
+        gameState.turn = socket.id;
         io.emit('updateState', gameState);
+    });
+
+    socket.on('playCard', (cardIndex) => {
+        const player = gameState.players[socket.id];
+        if (player && player.hand[cardIndex]) {
+            const card = player.hand.splice(cardIndex, 1)[0];
+            gameState.table.push(card);
+            
+            // Простая логика: после твоего хода "ходит" бот (имитация)
+            io.emit('updateState', gameState);
+            
+            setTimeout(() => {
+                if (gameState.deck.length > 0) {
+                    gameState.table.push(gameState.deck.pop()); // Бот кидает карту из колоды для примера
+                    io.emit('updateState', gameState);
+                }
+            }, 1500);
+        }
     });
 
     socket.on('disconnect', () => {
         delete gameState.players[socket.id];
-        io.emit('updateState', gameState);
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Работает на порту ${PORT}`));
