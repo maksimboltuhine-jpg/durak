@@ -2,93 +2,120 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.onrender.com; script-src 'self' 'unsafe-inline' https://*.onrender.com https://cdn.socket.io; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.onrender.com wss://*.onrender.com; img-src 'self' data: https://*.yastatic.net https://*.yandex.ru;">
-    
-    <title>Дурак Онлайн</title>
+    <title>Дурак Онлайн - Полная Версия</title>
     <style>
-        body { background: #2d5a27; color: white; font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
-        #game-container { width: 100%; max-width: 800px; text-align: center; }
+        body { background: #1b4317; color: white; font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .hidden { display: none !important; }
+        #menu { margin-top: 100px; }
+        button, select { padding: 10px 20px; font-size: 18px; margin: 10px; cursor: pointer; border-radius: 8px; border: none; }
+        button { background: #f1c40f; color: black; font-weight: bold; }
+        button:hover { background: #d4ac0d; }
         
-        .trump-info { font-size: 24px; margin: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; }
+        #table-area { min-height: 250px; background: rgba(0,0,0,0.2); border-radius: 15px; display: flex; justify-content: center; align-items: center; gap: 20px; padding: 20px; margin: 20px auto; max-width: 900px; flex-wrap: wrap; }
+        .card-pair { display: flex; flex-direction: column; gap: -50px; position: relative; }
+        .card { width: 70px; height: 100px; background: white; color: black; border-radius: 8px; border: 2px solid #333; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
+        .card.red { color: #e74c3c; }
+        .defense-card { position: absolute; top: 20px; left: 15px; z-index: 2; }
         
-        #table { 
-            background: rgba(0,0,0,0.2); border: 3px dashed rgba(255,255,255,0.3); 
-            min-height: 180px; margin: 20px 0; border-radius: 20px; 
-            display: flex; flex-wrap: wrap; justify-content: center; align-items: center; 
-        }
-        
-        .card { 
-            width: 75px; height: 110px; background: white; color: black; border-radius: 10px; 
-            margin: 8px; display: flex; justify-content: center; align-items: center; 
-            font-size: 22px; font-weight: bold; border: 2px solid #333; 
-            cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: transform 0.2s;
-        }
-        .card:hover { transform: translateY(-10px); }
-        .red { color: #e74c3c; }
-        
-        #myHand { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
-        h3 { margin-bottom: 5px; color: #f1c40f; }
+        #hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+        .info-panel { display: flex; justify-content: space-between; max-width: 900px; margin: 0 auto; background: #0f2b0c; padding: 10px 20px; border-radius: 10px; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <h1>Дурак Online</h1>
+<div id="menu">
+    <h1>Настройки игры</h1>
+    <label>Размер колоды: </label>
+    <select id="deck-size">
+        <option value="24">24 карты</option>
+        <option value="36" selected>36 карт (Классика)</option>
+        <option value="52">52 карты</option>
+    </select>
     
-    <div class="trump-info">Козырь: <span id="trump-val">?</span></div>
-    
-    <h3>Стол</h3>
-    <div id="table"></div>
 
-    <h3>Ваши карты</h3>
-    <div id="myHand"></div>
+    <button onclick="startGame()">Играть с Ботом</button>
+</div>
+
+<div id="game" class="hidden">
+    <div class="info-panel">
+        <div>Колода: <span id="deck-count">0</span> шт.</div>
+        <div style="color: #f1c40f;">Козырь: <span id="trump-info">?</span></div>
+        <div id="turn-info" style="font-weight: bold; color: #3498db;">Ваш ход!</div>
+    </div>
+
+    <div id="table-area"></div>
+
+    <div style="margin-top: 15px;">
+        <button id="btn-pass" onclick="sendAction('pass')">Бито / Пас</button>
+        <button id="btn-take" onclick="sendAction('take')">Беру</button>
+    </div>
+
+    <h3 style="margin-bottom: 5px;">Ваши карты:</h3>
+    <div id="hand"></div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
-    const tableDiv = document.getElementById('table');
-    const handDiv = document.getElementById('myHand');
-    const trumpSpan = document.getElementById('trump-val');
 
-    // Авто-вход при загрузке
-    socket.emit('joinGame', 'Игрок 1');
+    function startGame() {
+        const size = parseInt(document.getElementById('deck-size').value);
+        socket.emit('startBotGame', size);
+        document.getElementById('menu').classList.add('hidden');
+        document.getElementById('game').classList.remove('hidden');
+    }
+
+    function sendAction(action) { socket.emit('actionBtn', action); }
+
+    function makeCardUI(card, isDefense = false) {
+        if (!card) return '';
+        const isRed = ['♥','♦'].includes(card.suit);
+        const classes = `card ${isRed ? 'red' : ''} ${isDefense ? 'defense-card' : ''}`;
+        return `<div class="${classes}">${card.value}${card.suit}</div>`;
+    }
 
     socket.on('updateState', (state) => {
-        // Отображение козыря
+        if (state.status !== 'playing') return;
+
+        // Обновляем статус
+        document.getElementById('deck-count').innerText = state.deck.length;
         if(state.trump) {
-            trumpSpan.innerText = `${state.trump.value}${state.trump.suit}`;
-            trumpSpan.style.color = ['♥','♦'].includes(state.trump.suit) ? '#e74c3c' : 'white';
+            document.getElementById('trump-info').innerText = state.trump.value + state.trump.suit;
         }
 
-        // Очистка
-        tableDiv.innerHTML = '';
-        handDiv.innerHTML = '';
+        const myIndex = state.players.findIndex(p => p.id === socket.id);
+        const isMyTurnToAttack = state.attackerIndex === myIndex;
+        document.getElementById('turn-info').innerText = isMyTurnToAttack ? "ВЫ АТАКУЕТЕ ⚔️" : "ВЫ ЗАЩИЩАЕТЕСЬ 🛡️";
+        document.getElementById('turn-info').style.color = isMyTurnToAttack ? "#e74c3c" : "#3498db";
 
-        // Рисуем карты на столе
-        state.table.forEach(card => {
-            tableDiv.appendChild(createCardEl(card));
+        // Кнопки
+        document.getElementById('btn-pass').style.display = isMyTurnToAttack ? 'inline-block' : 'none';
+        document.getElementById('btn-take').style.display = !isMyTurnToAttack ? 'inline-block' : 'none';
+
+        // Рисуем стол
+        const tableArea = document.getElementById('table-area');
+        tableArea.innerHTML = '';
+        state.table.forEach(pair => {
+            const pairDiv = document.createElement('div');
+            pairDiv.className = 'card-pair';
+            pairDiv.innerHTML = makeCardUI(pair.attack) + (pair.defense ? makeCardUI(pair.defense, true) : '');
+            tableArea.appendChild(pairDiv);
         });
 
-        // Рисуем карты игрока
-        const myData = state.players[socket.id];
+        // Рисуем руку
+        const handDiv = document.getElementById('hand');
+        handDiv.innerHTML = '';
+        const myData = state.players[myIndex];
         if (myData) {
-            myData.hand.forEach((card, index) => {
-                const el = createCardEl(card);
-                el.onclick = () => socket.emit('playCard', index);
-                handDiv.appendChild(el);
+            myData.hand.forEach((card, i) => {
+                const cardEl = document.createElement('div');
+                cardEl.innerHTML = makeCardUI(card);
+                cardEl.firstElementChild.onclick = () => socket.emit('playCard', i);
+                handDiv.appendChild(cardEl.firstElementChild);
             });
         }
     });
-
-    function createCardEl(card) {
-        const div = document.createElement('div');
-        const isRed = ['♥','♦'].includes(card.suit);
-        div.className = `card ${isRed ? 'red' : ''}`;
-        div.innerText = card.value + card.suit;
-        return div;
-    }
 </script>
 </body>
 </html>
