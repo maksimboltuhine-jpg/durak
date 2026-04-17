@@ -26,6 +26,8 @@ function createDeck() {
 }
 
 io.on('connection', (socket) => {
+    console.log('Подключился игрок:', socket.id);
+
     socket.on('joinGame', (name) => {
         if (Object.keys(gameState.players).length === 0) {
             gameState.deck = createDeck();
@@ -48,12 +50,13 @@ io.on('connection', (socket) => {
             const card = player.hand.splice(cardIndex, 1)[0];
             gameState.table.push(card);
             
-            // Простая логика: после твоего хода "ходит" бот (имитация)
+            // Отправляем обновление всем
             io.emit('updateState', gameState);
             
+            // Имитация хода бота через 1.5 секунды
             setTimeout(() => {
                 if (gameState.deck.length > 0) {
-                    gameState.table.push(gameState.deck.pop()); // Бот кидает карту из колоды для примера
+                    gameState.table.push(gameState.deck.pop());
                     io.emit('updateState', gameState);
                 }
             }, 1500);
@@ -62,8 +65,9 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         delete gameState.players[socket.id];
+        io.emit('updateState', gameState);
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Работает на порту ${PORT}`));
+server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
