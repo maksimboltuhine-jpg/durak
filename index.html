@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Durak Online</title>
+    <style>
+        body { background: #2d5a27; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #table { border: 2px solid #1a3c17; border-radius: 15px; width: 80%; height: 300px; margin: 20px; display: flex; justify-content: center; align-items: center; }
+        .card { width: 60px; height: 90px; background: white; color: black; border-radius: 5px; margin: 5px; display: inline-block; text-align: center; line-height: 90px; font-weight: bold; border: 1px solid #000; }
+        .red { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Карточный Дурак</h1>
+    <div id="status">Козырь: <span id="trump"></span></div>
+    <div id="table"></div>
+    <div id="myHand"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        socket.emit('joinGame', 'Игрок 1');
+
+        socket.on('updateState', (state) => {
+            document.getElementById('trump').innerText = state.trump.suit + ' ' + state.trump.value;
+            const handDiv = document.getElementById('myHand');
+            handDiv.innerHTML = '<h3>Ваши карты:</h3>';
+            
+            state.players[socket.id]?.hand.forEach(card => {
+                const el = document.createElement('div');
+                el.className = `card ${['♥','♦'].includes(card.suit) ? 'red' : ''}`;
+                el.innerText = card.value + card.suit;
+                handDiv.appendChild(el);
+            });
+        });
+    </script>
+</body>
+</html>
